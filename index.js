@@ -44,6 +44,8 @@ client.on('message', msg => {
     if (msg.author.bot) return;
     if (!msg.cleanContent.startsWith(commandPrefix)) return;
 
+    if (msg.guild.id !== guildID) return;
+
     try {
         onCommand(msg);
     } catch (e) {
