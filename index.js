@@ -86,17 +86,11 @@ async function onCommand(msg) {
             default:
                 msg.reply("vai aprender a escrever seu imbencil");
                 break;
+            case "help":
+                helpCommand(msg);
+                break;
             case "intro":
                 await introCommand(msg, args);
-                break;
-            case "remove":
-                deleteIntro(msg.author.id);
-                msg.reply("sua intro foi pra deletera");
-                break;
-            case "test":
-                const suffix = port == 80 ? "" : `:${port}`;
-
-                msg.reply(`vc pode ver sua intro acessando http://${ip}${suffix}/intro/${msg.author.id}`);
                 break;
         }
     } catch (e) {
@@ -104,7 +98,28 @@ async function onCommand(msg) {
     }
 }
 
+function helpCommand(msg) {
+    msg.reply(
+        "lista de comandos:\`\`\`" +
+        commandPrefix + "help           mostra isso aqui kkkkkk\n" +
+        "\n" +
+        commandPrefix + "intro          coloca ou mostra a ajuda pras intro\n" +
+        commandPrefix + "intro remove   remove sua intro\n" +
+        commandPrefix + "intro test     mostra o link pra vc ouvir sua intro" +
+        "\`\`\`"
+    );
+}
+
 async function introCommand(msg, args) {
+    if (args.length == 0)
+        return introHelpCommand(msg);
+
+    if (args[0] == "remove")
+        return introRemoveCommand(msg);
+
+    if (args[0] == "test")
+        return introTestCommand(msg);
+
     const youtubeURL = args[0];
     const begin = timeToSeconds(args[1]) || 0;
     const duration = args[2] || maxDuration;
@@ -125,6 +140,29 @@ async function introCommand(msg, args) {
     setIntro(msg.author.id, filename);
 
     msg.reply("terminei essa porra");
+}
+
+function introTestCommand(msg) {
+    const suffix = port == 80 ? "" : `:${port}`;
+
+    msg.reply(`vc pode ver sua intro acessando http://${ip}${suffix}/intro/${msg.author.id}`);
+}
+
+function introHelpCommand(msg) {
+    msg.reply(
+        "como usar:\`\`\`" +
+        commandPrefix + "intro id_ou_url_do_youtube tempo_de_início duração_em_segundos" +
+        "\`\`\`" +
+        "exemplo:\`\`\`" +
+        commandPrefix + "intro https://www.youtube.com/watch?v=DC5uMv3InPY 0:06 2" +
+        "\`\`\`" +
+        "e o maximo de duração q uma intro pode ter eh " + maxDuration + " segundos"
+    );
+}
+
+function introRemoveCommand(msg) {
+    deleteIntro(msg.author.id);
+    msg.reply("sua intro foi pra deletera");
 }
 
 async function downloadYoutubeAudio({
