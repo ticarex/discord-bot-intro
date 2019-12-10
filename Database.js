@@ -3,7 +3,7 @@ const fs = require("fs");
 class Database {
     constructor(filename) {
         this.filename = filename;
-        this.version = 2;
+        this.version = 3;
         this.db = null;
 
         if (fs.existsSync(this.filename)) {
@@ -60,6 +60,15 @@ class Database {
                     guilds: {},
                     version: 2
                 }
+                this.save();
+                break;
+            case 2:
+                for (const [key, value] of Object.entries(this.db.users)) {
+                    this.db.users[key] = {
+                        intro: value
+                    };
+                }
+                this.db.version = 3;
                 this.save();
                 break;
             default:
