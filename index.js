@@ -18,8 +18,6 @@ const port = process.env.PORT || 80;
 
 const commandPrefix = process.env.COMMANDS_PREFIX || ".";
 const maxDuration = process.env.INTRO_MAX_DURATION || 7;
-const voiceChannelID = process.env.VOICE_CHANNEL_ID;
-const guildID = process.env.GUILD_ID;
 const botToken = process.env.BOT_TOKEN;
 
 const introCooldown = 1000 * 60 * (process.env.INTRO_COOLDOWN || 5);
@@ -44,8 +42,6 @@ client.on('message', msg => {
     if (msg.author.bot) return;
     if (!msg.cleanContent.startsWith(commandPrefix)) return;
 
-    if (msg.guild.id !== guildID) return;
-
     try {
         onCommand(msg);
     } catch (e) {
@@ -54,7 +50,10 @@ client.on('message', msg => {
 });
 
 client.on('voiceStateUpdate', (oldMember, newMember) => {
-    if (newMember.channelID != voiceChannelID) return;
+    const introChannel = getGuildIntroChannel(newMember.guild.id);
+
+    if (!introChannel) return;
+    if (newMember.channelID != introChannel) return;
 
     if (oldMember.channelID != newMember.channelID)
         onJoinVoiceChannel(newMember);
@@ -65,14 +64,14 @@ client.login(botToken);
 function webGetIntro(req, res) {
     const userID = req.params.userID;
 
-    if (!hasIntro(userID)) return res.send("vc nao tem intro porra");
+    if (!getIntro(userID)) return res.send("vc nao tem intro porra");
 
     const introPath = path.resolve(path.join("intros", getIntro(userID)));
     res.sendFile(introPath);
 }
 
 function onJoinVoiceChannel(guildMember) {
-    playIntro(guildMember.id);
+    playIntro(guildMember);
 }
 
 async function onCommand(msg) {
@@ -99,13 +98,16 @@ async function onCommand(msg) {
 }
 
 function helpCommand(msg) {
+    const p = commandPrefix;
+
     msg.reply(
         "lista de comandos:\`\`\`" +
-        commandPrefix + "help           mostra isso aqui kkkkkk\n" +
+        p + "help            mostra isso aqui kkkkkk\n" +
         "\n" +
-        commandPrefix + "intro          coloca ou mostra a ajuda pras intro\n" +
-        commandPrefix + "intro remove   remove sua intro\n" +
-        commandPrefix + "intro test     mostra o link pra vc ouvir sua intro" +
+        p + "intro           coloca ou mostra a ajuda pras intro\n" +
+        p + "intro remove    remove sua intro\n" +
+        p + "intro test      mostra o link pra vc ouvir sua intro\n" +
+        p + "intro channel   define o canal de voz atual como o de intro" +
         "\`\`\`"
     );
 }
@@ -119,6 +121,9 @@ async function introCommand(msg, args) {
 
     if (args[0] == "test")
         return introTestCommand(msg);
+
+    if (args[0] == "channel")
+        return introChannelCommand(msg);
 
     const youtubeURL = args[0];
     const begin = timeToSeconds(args[1]) || 0;
@@ -143,9 +148,27 @@ async function introCommand(msg, args) {
 }
 
 function introTestCommand(msg) {
+    if (!getIntro(msg.author.id))
+        return msg.reply(`vc nao tem intro caralho, oxi bixo burro da porra kkkkkkkkkkk`);
+
     const suffix = port == 80 ? "" : `:${port}`;
 
     msg.reply(`vc pode ver sua intro acessando http://${ip}${suffix}/intro/${msg.author.id}`);
+}
+
+function introChannelCommand(msg) {
+    const isGuildManager = msg.member.permissions.has("MANAGE_GUILD");
+
+    if (!isGuildManager)
+        return msg.reply(`oxi sai fora mano se nao for admin nem quero saber mano ta loco kkkkkkk`);
+
+    if (!msg.member.voice.channelID)
+        return msg.reply(`mano vc precisa estar em um canal de voz CARAIO`);
+
+    Database.guild(msg.member.guild.id).introChannel = msg.member.voice.channelID;
+    Database.save();
+
+    return msg.reply(`hahahahaha esse agora e o canal de intro caralho...`);
 }
 
 function introHelpCommand(msg) {
@@ -202,6 +225,10 @@ function isFormatVideo(format) {
     return format.encoding;
 };
 
+function getGuildIntroChannel(guildID) {
+    return Database.guild(guildID).introChannel;
+}
+
 async function downloadAndCropAudio({
     outputPath,
     stream,
@@ -239,42 +266,34 @@ function timeToSeconds(str) {
 }
 
 function setIntro(userID, filename) {
-    const db = Database.get();
-
     deleteIntro(userID);
 
-    db[userID] = filename;
-
+    Database.user(userID).intro = filename;
     Database.save();
 }
 
 function deleteIntro(userID) {
-    const db = Database.get();
+    const intro = getIntro(userID);
+    if (!intro) return;
 
-    if (!db[userID]) return;
-
-    fs.unlinkSync(path.join("intros", db[userID]));
-    delete db[userID];
+    fs.unlinkSync(path.join("intros", intro));
+    delete Database.user(userID).intro;
 
     Database.save();
 }
 
-function hasIntro(userID) {
-    const db = Database.get();
+async function playIntro(guildMember) {
+    const intro = getIntro(guildMember.id);
+    const introChannel = getGuildIntroChannel(guildMember.guild.id);
+    if (!intro) return;
+    if (!introChannel) return;
 
-    return userID in db;
-}
+    if (isOnIntroCooldown(guildMember.id)) return;
 
-async function playIntro(userID) {
-    if (!hasIntro(userID)) return;
-    if (isOnIntroCooldown(userID)) return;
+    const introPath = path.resolve(path.join("intros", intro));
 
-    const db = Database.get();
-    const filename = db[userID];
-    const introPath = path.resolve(path.join("intros", filename));
-
-    const guild = client.guilds.get(guildID);
-    const channel = guild.channels.get(voiceChannelID);
+    const guild = client.guilds.get(guildMember.guild.id);
+    const channel = guild.channels.get(introChannel);
 
     const conn = await channel.join();
 
@@ -283,7 +302,7 @@ async function playIntro(userID) {
         conn.disconnect();
     });
 
-    setIntroCooldown(userID);
+    setIntroCooldown(guildMember.id);
 }
 
 function isOnIntroCooldown(userID) {
@@ -293,9 +312,7 @@ function isOnIntroCooldown(userID) {
 }
 
 function getIntro(userID) {
-    const db = Database.get();
-
-    return db[userID];
+    return Database.user(userID).intro;
 }
 
 function setIntroCooldown(userID) {
