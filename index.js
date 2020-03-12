@@ -15,12 +15,10 @@ const client = new Discord.Client();
 const app = express();
 
 const port = process.env.PORT || 80;
-
-const commandPrefix = process.env.COMMANDS_PREFIX || ".";
-const maxDuration = process.env.INTRO_MAX_DURATION || 7;
+const commandPrefix = process.env.COMMANDS_PREFIX;
+const maxDuration = process.env.INTRO_MAX_DURATION;
 const botToken = process.env.BOT_TOKEN;
-
-const introCooldown = 1000 * 60 * (process.env.INTRO_COOLDOWN || 5);
+const introCooldown = 1000 * 60 * process.env.INTRO_COOLDOWN;
 
 const lastPlayed = {};
 
