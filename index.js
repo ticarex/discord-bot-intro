@@ -292,13 +292,13 @@ async function playIntro(guildMember) {
 
     const introPath = path.resolve(path.join("intros", intro));
 
-    const guild = client.guilds.get(guildMember.guild.id);
-    const channel = guild.channels.get(introChannel);
+    const guild = client.guilds.resolve(guildMember.guild.id);
+    const channel = guild.channels.resolve(introChannel);
 
     const conn = await channel.join();
 
     const dispatcher = conn.play(introPath);
-    dispatcher.once('end', () => {
+    dispatcher.once('finish', () => {
         conn.disconnect();
     });
 
