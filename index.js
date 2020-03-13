@@ -127,10 +127,13 @@ async function introCommand(msg, args) {
 
     const youtubeURL = args[0];
     const begin = timeToSeconds(args[1]) || 0;
-    const duration = args[2] || maxDuration;
+    const duration = timeToSeconds(args[2]) - begin || maxDuration;
 
     if (duration > maxDuration)
         throw new Error("nao pode durar tanto tempo assim nao filho da puta");
+
+    if (duration < 0)
+        throw new Error("mano vc ta nas drogas? kkkkkkkkkkkkkkkkkkkkkkkkk olha esses tempo mano q doenca...");
 
     if (begin < 0)
         throw new Error("inicio menor q 0? vc e gay?");
@@ -174,10 +177,10 @@ function introChannelCommand(msg) {
 function introHelpCommand(msg) {
     msg.reply(
         "como usar:\`\`\`" +
-        commandPrefix + "intro id_ou_url_do_youtube tempo_de_início duração_em_segundos" +
+        commandPrefix + "intro id_ou_url_do_youtube tempo_de_início tempo_de_término" +
         "\`\`\`" +
         "exemplo:\`\`\`" +
-        commandPrefix + "intro https://www.youtube.com/watch?v=DC5uMv3InPY 0:06 2" +
+        commandPrefix + "intro https://www.youtube.com/watch?v=DC5uMv3InPY 0:06 0:08" +
         "\`\`\`" +
         "e o maximo de duração q uma intro pode ter eh " + maxDuration + " segundos"
     );
@@ -262,7 +265,7 @@ function timeToSeconds(str) {
         m *= 60;
     }
 
-    return s;
+    return parseFloat(s);
 }
 
 function setIntro(userID, filename) {
