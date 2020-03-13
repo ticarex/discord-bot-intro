@@ -43,6 +43,7 @@ client.on('message', msg => {
     try {
         onCommand(msg);
     } catch (e) {
+        console.error(e);
         msg.reply(e.message);
     }
 });
@@ -91,6 +92,7 @@ async function onCommand(msg) {
                 break;
         }
     } catch (e) {
+        console.error(e);
         msg.reply(e.message);
     }
 }
@@ -216,11 +218,11 @@ async function downloadYoutubeAudio({
 }
 
 function isFormatAudio(format) {
-    return !!format.audioBitrate && !!format.audioEncoding;
+    return !!format.audioBitrate;
 };
 
 function isFormatVideo(format) {
-    return format.encoding;
+    return format.mimeType.startsWith("video");
 };
 
 function getGuildIntroChannel(guildID) {
