@@ -20,7 +20,7 @@ const maxDuration = process.env.INTRO_MAX_DURATION;
 const botToken = process.env.BOT_TOKEN;
 const introCooldown = 1000 * 60 * process.env.INTRO_COOLDOWN;
 
-const lastPlayed = {};
+const lastOnline = {};
 
 let ip;
 publicIp.v4().then(publicIP => ip = publicIP);
@@ -51,6 +51,9 @@ client.on('message', msg => {
 client.on('voiceStateUpdate', (oldMember, newMember) => {
     const introChannel = getGuildIntroChannel(newMember.guild.id);
 
+    if (oldMember.channelID && newMember.channelID != oldMember.channelID)
+        setLastOnline(newMember.id, oldMember.channelID);
+
     if (!introChannel) return;
     if (newMember.channelID != introChannel) return;
 
@@ -59,6 +62,19 @@ client.on('voiceStateUpdate', (oldMember, newMember) => {
 });
 
 client.login(botToken);
+
+function setLastOnline(userID, channelID) {
+    if (!lastOnline[userID]) lastOnline[userID] = {};
+
+    lastOnline[userID][channelID] = Date.now();
+}
+
+function getLastOnline(userID, channelID) {
+    if (!lastOnline[userID]) return null;
+    if (!lastOnline[userID][channelID]) return null;
+
+    return lastOnline[userID][channelID];
+}
 
 function webGetIntro(req, res) {
     const userID = req.params.userID;
@@ -291,7 +307,7 @@ async function playIntro(guildMember) {
     if (!intro) return;
     if (!introChannel) return;
 
-    if (isOnIntroCooldown(guildMember.id)) return;
+    if (isOnIntroCooldown(guildMember.id, introChannel)) return;
 
     const introPath = path.resolve(path.join("intros", intro));
 
@@ -304,20 +320,15 @@ async function playIntro(guildMember) {
     dispatcher.once('finish', () => {
         conn.disconnect();
     });
-
-    setIntroCooldown(guildMember.id);
 }
 
-function isOnIntroCooldown(userID) {
-    if (!lastPlayed[userID]) return false;
+function isOnIntroCooldown(userID, channelID) {
+    const lastOnline = getLastOnline(userID, channelID);
+    if (!lastOnline) return false;
 
-    return lastPlayed[userID] + introCooldown > Date.now();
+    return lastOnline + introCooldown > Date.now();
 }
 
 function getIntro(userID) {
     return Database.user(userID).intro;
-}
-
-function setIntroCooldown(userID) {
-    lastPlayed[userID] = Date.now();
 }
